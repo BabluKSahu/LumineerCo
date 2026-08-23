@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { SignJWT, jwtVerify } from 'jose'
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'lumineerco-admin-2024'
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'lumineerco-secret-key-change-in-production'
+const JWT_SECRET = process.env.JWT_SECRET || 'lumineerco-jwt-secret-change-in-production'
+const JWT_SECRET_KEY = new TextEncoder().encode(JWT_SECRET)
+
+async function createToken(): Promise<string> {
+  return new SignJWT({ role: 'admin' })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('24h')
+    .sign(JWT_SECRET_KEY)
+}
+
+async function verifyToken(token: string): Promise<boolean> {
+  try {
+    await jwtVerify(token, JWT_SECRET_KEY)
+    return true
+  } catch {
+    return false
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,17 +35,19 @@ export async function POST(request: NextRequest) {
     }
 
     if (password === ADMIN_PASSWORD) {
+      const token = await createToken()
+      
       const response = NextResponse.json({
         success: true,
         message: 'Login successful',
       })
 
-      // Set secure httpOnly cookie
-      response.cookies.set('admin-auth', ADMIN_SECRET, {
+      // Set secure httpOnly cookie with JWT
+      response.cookies.set('admin-auth', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
+        maxAge: 60 * 60 * 24, // 24 hours
         path: '/',
       })
 
@@ -57,3 +78,6 @@ export async function DELETE() {
   })
   return response
 }
+
+// Export verify function for middleware
+export { verifyToken }

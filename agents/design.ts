@@ -1,41 +1,46 @@
-import { BaseAgent, AgentTask, AgentResult } from './base'
+import { BaseAgent } from '@/lib/agents/base'
+import { agentRegistry } from '@/lib/agents/base'
 
 export class DesignAgent extends BaseAgent {
   constructor() {
-    super(
-      'Design Services',
-      `You are an expert UI/UX designer and brand strategist.
+    super({
+      name: 'Design Services',
+      description: 'Professional designer and brand strategist',
+      systemPrompt: `You are a professional designer, brand strategist, and UI/UX expert.
 
 Your expertise includes:
-- Brand identity systems (logos, colors, typography, voice)
-- UI/UX design for web and mobile
-- Figma design systems and component libraries
-- Resume/CV design (ATS-friendly)
-- Marketing assets (social, email, ads)
-- Presentation design
-- Design handoff to developers
+- Brand identity design (logos, color palettes, typography)
+- UI/UX design for web and mobile applications
+- Resume and portfolio design
+- Marketing materials (brochures, presentations, social media)
+- Figma prototyping and design systems
+- Design handoff and developer collaboration
+- Accessibility and inclusive design
+- Design thinking and user research
 
 When given a project, you:
-1. Research brand/competitors
-2. Create moodboard and direction
-3. Design system (colors, type, components)
-4. Create high-fidelity mockups
-5. Build interactive prototype
-6. Prepare developer handoff (specs, assets, tokens)
+1. Understand brand, audience, and goals
+2. Research competitors and design trends
+3. Create moodboards and style direction
+4. Design core brand elements
+5. Build UI components and screens
+6. Create design system documentation
+7. Prepare handoff assets and specs
 
-Output format: Figma file structure, design tokens, component specs, asset exports, style guide.`,
-      ['design_research', 'figma_api', 'asset_generation']
-    )
+Output format: Brand guidelines, Figma files, UI screens, component library, design tokens, handoff package.`,
+      tools: ['figma_api', 'design_tools', 'accessibility_check']
+    })
   }
 
-  async execute(task: AgentTask): Promise<AgentResult> {
-    const { input } = task
-    const req = input as {
-      type: 'resume' | 'brand-identity' | 'ui-mockup' | 'marketing-assets' | 'presentation'
-      requirements: string[]
-      brandGuidelines?: any
-      targetAudience?: string
-      deliverables: string[]
+  async execute(input: { prompt: string; context?: Record<string, unknown>; projectId?: string }): Promise<{ success: boolean; result?: unknown; error?: string }> {
+    const req = {
+      type: 'brand' as 'brand' | 'ui' | 'resume' | 'marketing' | 'presentation',
+      brandName: '',
+      industry: '',
+      style: 'modern' as 'modern' | 'minimal' | 'bold' | 'playful' | 'corporate',
+      colors: [] as string[],
+      deliverables: [] as string[],
+      ...JSON.parse(input.prompt)
     }
 
     const steps = await this.plan(req)
@@ -43,26 +48,26 @@ Output format: Figma file structure, design tokens, component specs, asset expor
       await this.executeStep(step, req)
     }
 
-    const deliverable = this.generateDesignDeliverable(req)
+    const deliverable = this.generateDeliverable(req)
     const review = await this.review(deliverable)
 
     if (!review.approved) {
       return { success: false, error: review.feedback }
     }
 
-    return this.formatOutput(deliverable)
+    return { success: true, result: this.formatOutput(deliverable) }
   }
 
   protected async plan(input: unknown): Promise<string[]> {
     return [
-      'Research brand, competitors, and target audience',
-      'Define design direction and moodboard',
-      'Create design system (tokens, components)',
-      'Design high-fidelity mockups',
-      'Build interactive prototype',
-      'Prepare developer handoff package',
-      'Export production-ready assets',
-      'Create brand/style guide documentation',
+      'Brand discovery and research',
+      'Moodboard and style direction',
+      'Logo concepts and refinement',
+      'Color palette and typography system',
+      'Core UI components design',
+      'Key screen/page designs',
+      'Design system documentation',
+      'Asset export and handoff prep',
     ]
   }
 
@@ -71,70 +76,92 @@ Output format: Figma file structure, design tokens, component specs, asset expor
     return { step, completed: true }
   }
 
-  private generateDesignDeliverable(req: any) {
+  private generateDeliverable(req: any) {
     return {
       type: req.type,
-      figmaStructure: this.getFigmaStructure(req.type),
-      designTokens: this.getDesignTokens(),
-      components: this.getComponents(req.type),
-      assets: this.getAssets(req.type),
-      styleGuide: this.getStyleGuide(),
-      handoffNotes: this.getHandoffNotes(req.type),
+      brandGuidelines: this.generateBrandGuidelines(req),
+      uiComponents: this.generateUIComponents(req),
+      screens: this.generateScreens(req),
+      designSystem: this.generateDesignSystem(req),
+      handoff: this.generateHandoff(req),
     }
   }
 
-  private getFigmaStructure(type: string) {
+  private generateBrandGuidelines(req: any) {
     return {
-      pages: ['Design System', 'Mockups', 'Prototype', 'Assets', 'Documentation'],
-      frames: type === 'resume' ? ['Desktop', 'Mobile', 'Print'] : ['Desktop', 'Tablet', 'Mobile'],
+      logo: {
+        primary: 'Logo mark + wordmark',
+        variations: ['Horizontal', 'Vertical', 'Icon only', 'Monochrome'],
+        clearSpace: '2x icon height',
+        usage: 'Do not stretch, recolor, or add effects',
+      },
+      colors: {
+        primary: req.colors[0] || '#1E40AF',
+        secondary: req.colors[1] || '#F59E0B',
+        accent: req.colors[2] || '#10B981',
+        neutral: ['#FFFFFF', '#F3F4F6', '#9CA3AF', '#374151', '#111827'],
+        semantic: { success: '#10B981', warning: '#F59E0B', error: '#EF4444' },
+      },
+      typography: {
+        heading: 'Inter, system-ui',
+        body: 'Inter, system-ui',
+        mono: 'JetBrains Mono, monospace',
+        scale: { xs: '12px', sm: '14px', base: '16px', lg: '18px', xl: '24px', '2xl': '32px', '3xl': '48px' },
+      },
+      spacing: { base: '4px', scale: [0, 4, 8, 12, 16, 24, 32, 48, 64] },
+      borderRadius: { sm: '4px', md: '8px', lg: '12px', full: '9999px' },
+      shadows: { sm: '0 1px 2px', md: '0 4px 6px', lg: '0 10px 15px' },
     }
   }
 
-  private getDesignTokens() {
-    return {
-      colors: { primary: {}, secondary: {}, neutral: {}, semantic: {} },
-      typography: { headings: {}, body: {}, caption: {} },
-      spacing: { scale: '4px base' },
-      borderRadius: { sm: '4px', md: '8px', lg: '16px', full: '9999px' },
-      shadows: { sm: {}, md: {}, lg: {} },
-      breakpoints: { sm: '640px', md: '768px', lg: '1024px', xl: '1280px' },
-    }
-  }
-
-  private getComponents(type: string) {
-    const base = ['Button', 'Input', 'Card', 'Modal', 'Navigation', 'Footer']
-    if (type === 'ui-mockup') {
-      return [...base, 'Dashboard', 'Table', 'Chart', 'Form', 'Settings']
-    }
-    return base
-  }
-
-  private getAssets(type: string) {
-    return {
-      logos: ['Primary', 'Secondary', 'Icon', 'Favicon'],
-      images: ['Hero', 'Features', 'Team', 'Testimonials'],
-      icons: ['UI set', 'Social', 'Payment'],
-      formats: ['SVG', 'PNG@2x', 'PNG@3x', 'WebP'],
-    }
-  }
-
-  private getStyleGuide() {
-    return {
-      logoUsage: 'Clear space, minimum size, don\'ts',
-      colorUsage: 'Primary/secondary ratios, accessibility',
-      typography: 'Hierarchy, line height, letter spacing',
-      imagery: 'Photo style, illustration style',
-      voice: 'Tone, vocabulary, grammar preferences',
-    }
-  }
-
-  private getHandoffNotes(type: string) {
+  private generateUIComponents(req: any) {
     return [
-      'All components use design tokens',
-      'Responsive breakpoints defined',
-      'Accessibility: WCAG AA compliant',
-      'Assets exported and optimized',
-      'Interaction states documented',
+      'Buttons (Primary, Secondary, Ghost, Destructive)',
+      'Inputs (Text, Select, Textarea, Checkbox, Radio)',
+      'Cards (Default, Elevated, Outlined)',
+      'Navigation (Header, Footer, Sidebar, Breadcrumbs)',
+      'Feedback (Alert, Toast, Modal, Tooltip, Progress)',
+      'Data Display (Table, Badge, Avatar, Divider)',
+      'Forms (Field, Label, Error, Helper Text)',
     ]
   }
+
+  private generateScreens(req: any) {
+    const screens: Record<string, string[]> = {
+      brand: ['Brand guidelines page', 'Logo usage examples', 'Color palette showcase'],
+      ui: ['Dashboard', 'Settings', 'User Profile', 'Onboarding Flow'],
+      resume: ['Resume (1-page)', 'Resume (2-page)', 'Cover Letter', 'Portfolio Page'],
+      marketing: ['Landing Page', 'Email Template', 'Social Media Kit', 'Ad Banners'],
+      presentation: ['Title Slide', 'Content Slides', 'Data Visualization', 'Closing Slide'],
+    }
+    return screens[req.type] || screens.ui
+  }
+
+  private generateDesignSystem(req: any) {
+    return {
+      figma: 'Figma file with all components, styles, and documentation',
+      tokens: 'Design tokens JSON (Style Dictionary format)',
+      storybook: 'Storybook integration for React components',
+      documentation: 'Zeroheight/Notion documentation site',
+    }
+  }
+
+  private generateHandoff(req: any) {
+    return {
+      assets: ['SVG icons', 'PNG exports (1x, 2x, 3x)', 'Font files'],
+      specs: 'Redlines with measurements, colors, spacing',
+      animations: 'Lottie/After Effects prototypes',
+      checklist: [
+        'All components documented',
+        'Responsive breakpoints defined',
+        'Accessibility audit passed',
+        'Dark mode variants included',
+        'Loading states designed',
+        'Error states designed',
+      ],
+    }
+  }
 }
+
+// Register agent
+agentRegistry.register('design', new DesignAgent())

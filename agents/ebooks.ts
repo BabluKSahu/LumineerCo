@@ -1,10 +1,12 @@
-import { BaseAgent, AgentTask, AgentResult } from './base'
+import { BaseAgent } from '@/lib/agents/base'
+import { agentRegistry } from '@/lib/agents/base'
 
 export class EbooksAgent extends BaseAgent {
   constructor() {
-    super(
-      'E-Books & Digital Products',
-      `You are an expert digital product creator and publishing specialist.
+    super({
+      name: 'E-Books & Digital Products',
+      description: 'Expert digital product creator and publishing specialist',
+      systemPrompt: `You are an expert digital product creator and publishing specialist.
 
 Your expertise includes:
 - E-book structure, writing, and formatting (Kindle, EPUB, PDF)
@@ -25,19 +27,19 @@ When given a project, you:
 6. Set up distribution and delivery
 
 Output format: Complete manuscript, formatted files (EPUB, PDF), cover design, sales page copy, launch checklist.`,
-      ['web_search', 'market_research', 'formatting_tools']
-    )
+      tools: ['web_search', 'market_research', 'formatting_tools']
+    })
   }
 
-  async execute(task: AgentTask): Promise<AgentResult> {
-    const { input } = task
-    const req = input as {
-      type: 'ebook' | 'course' | 'template' | 'lead-magnet' | 'bundle'
-      topic: string
-      targetAudience: string
-      format: ('pdf' | 'epub' | 'kindle' | 'notion' | 'video')[]
-      length?: string
-      pricePoint?: number
+  async execute(input: { prompt: string; context?: Record<string, unknown>; projectId?: string }): Promise<{ success: boolean; result?: unknown; error?: string }> {
+    const req = {
+      type: 'ebook' as 'ebook' | 'course' | 'template' | 'lead-magnet' | 'bundle',
+      topic: '',
+      targetAudience: '',
+      format: ['pdf'] as ('pdf' | 'epub' | 'kindle' | 'notion' | 'video')[],
+      length: '',
+      pricePoint: 0,
+      ...JSON.parse(input.prompt)
     }
 
     const steps = await this.plan(req)
@@ -52,7 +54,7 @@ Output format: Complete manuscript, formatted files (EPUB, PDF), cover design, s
       return { success: false, error: review.feedback }
     }
 
-    return this.formatOutput(deliverable)
+    return { success: true, result: this.formatOutput(deliverable) }
   }
 
   protected async plan(input: unknown): Promise<string[]> {
@@ -79,7 +81,7 @@ Output format: Complete manuscript, formatted files (EPUB, PDF), cover design, s
       type: req.type,
       topic: req.topic,
       manuscript: this.generateManuscript(req),
-      formats: req.format.map(f => this.getFormatSpec(f)),
+      formats: req.format.map((f: string) => this.getFormatSpec(f)),
       cover: this.getCoverSpec(),
       salesPage: this.getSalesPageCopy(req),
       launchPlan: this.getLaunchPlan(),
@@ -157,3 +159,6 @@ Output format: Complete manuscript, formatted files (EPUB, PDF), cover design, s
     }
   }
 }
+
+// Register agent
+agentRegistry.register('ebooks', new EbooksAgent())

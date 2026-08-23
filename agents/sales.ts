@@ -1,10 +1,12 @@
-import { BaseAgent, AgentTask, AgentResult } from './base'
+import { BaseAgent } from '@/lib/agents/base'
+import { agentRegistry } from '@/lib/agents/base'
 
 export class SalesAgent extends BaseAgent {
   constructor() {
-    super(
-      'Sales Copy & Proposals',
-      `You are an expert conversion copywriter and proposal strategist.
+    super({
+      name: 'Sales Copy & Proposals',
+      description: 'Expert conversion copywriter and proposal strategist',
+      systemPrompt: `You are an expert conversion copywriter and proposal strategist.
 
 Your expertise includes:
 - Direct response copywriting (AIDA, PAS, BAB, 4Ps)
@@ -26,21 +28,21 @@ When given a project, you:
 6. Provide swipe file and templates
 
 Output format: Complete copy docs, variants, sequences, proposal templates, test plan.`,
-      ['copywriting_frameworks', 'market_research', 'competitor_analysis']
-    )
+      tools: ['copywriting_frameworks', 'market_research', 'competitor_analysis']
+    })
   }
 
-  async execute(task: AgentTask): Promise<AgentResult> {
-    const { input } = task
-    const req = input as {
-      type: 'cold-email' | 'proposal' | 'landing-page' | 'vsl' | 'pitch-deck' | 'case-study' | 'follow-up'
-      offer: string
-      targetAudience: string
-      valueProps: string[]
-      objections?: string[]
-      tone?: string
-      length?: string
-      variants?: number
+  async execute(input: { prompt: string; context?: Record<string, unknown>; projectId?: string }): Promise<{ success: boolean; result?: unknown; error?: string }> {
+    const req = {
+      type: 'cold-email' as 'cold-email' | 'proposal' | 'landing-page' | 'vsl' | 'pitch-deck' | 'case-study' | 'follow-up',
+      offer: '',
+      targetAudience: '',
+      valueProps: [] as string[],
+      objections: [] as string[],
+      tone: '',
+      length: '',
+      variants: 3,
+      ...JSON.parse(input.prompt)
     }
 
     const steps = await this.plan(req)
@@ -55,7 +57,7 @@ Output format: Complete copy docs, variants, sequences, proposal templates, test
       return { success: false, error: review.feedback }
     }
 
-    return this.formatOutput(deliverable)
+    return { success: true, result: this.formatOutput(deliverable) }
   }
 
   protected async plan(input: unknown): Promise<string[]> {
@@ -308,3 +310,6 @@ Email 7 (Day 14): Break-up / Final`
     ]
   }
 }
+
+// Register agent
+agentRegistry.register('sales', new SalesAgent())

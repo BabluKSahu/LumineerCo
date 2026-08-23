@@ -82,6 +82,66 @@ class TelegramStorage {
     }
   }
 
+  // Test connection to Telegram API
+  async testConnection(): Promise<boolean> {
+    try {
+      const me = await this.bot.telegram.getMe()
+      return !!me
+    } catch (error) {
+      console.error('Telegram connection test failed:', error)
+      return false
+    }
+  }
+
+  // Get bot info
+  async getBotInfo() {
+    try {
+      return await this.bot.telegram.getMe()
+    } catch (error) {
+      console.error('Get bot info failed:', error)
+      return null
+    }
+  }
+
+  // Get chat info (for admin or storage channel)
+  async getChatInfo(chatId: string) {
+    try {
+      return await this.bot.telegram.getChat(chatId)
+    } catch (error) {
+      console.error('Get chat info failed:', error)
+      return null
+    }
+  }
+
+  // List recent messages from storage channel
+  async getRecentMessages(limit = 50): Promise<any[]> {
+    // Note: Telegram Bot API doesn't directly support getting message history
+    // In production, you'd maintain a local index or use MTProto
+    return []
+  }
+
+  // Delete a message
+  async deleteMessage(chatId: string, messageId: number) {
+    try {
+      await this.bot.telegram.deleteMessage(chatId, messageId)
+      return true
+    } catch (error) {
+      console.error('Delete message failed:', error)
+      return false
+    }
+  }
+
+  // Update a message
+  async updateMessage(chatId: string, messageId: number, text: string, options?: { parse_mode?: 'Markdown' | 'HTML' }) {
+    try {
+      await this.bot.telegram.editMessageText(chatId, messageId, undefined, text, options)
+      return true
+    } catch (error) {
+      console.error('Update message failed:', error)
+      return false
+    }
+  }
+
   getBot() {
     return this.bot
   }

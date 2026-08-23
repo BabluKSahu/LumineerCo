@@ -1,21 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { getTelegramStorage } from '@/telegram/storage'
-import { encrypt } from '@/lib/encryption'
-
-const contactSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email format'),
-  service: z.string().min(1, 'Service is required'),
-  budget: z.string().optional(),
-  timeline: z.string().optional(),
-  message: z.string().min(20, 'Message must be at least 20 characters'),
-})
+import { contactFormSchema, validateSchema, createErrorResponse, createSuccessResponse, checkRateLimit } from '@/lib/validation'
+import { getHermesManager, runWorkflowFromWebhook } from '@/lib/hermes'
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting by IP
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+    const rateLimit = checkRateLimit(`contact-${ip}`, 5, 60 * 60 * 1000) // 5 requests per hour
+    
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        createErrorResponse('Too many requests. Please try again later.', 429),
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
-    const validated = contactSchema.parse(body)
+    const validation = validateSchema(contactFormSchema, body)
+    
+    if (!validation.success) {
+      return NextResponse.json(
+        createErrorResponse('Validation failed', 400, validation.errors),
+        { status: 400 }
+      )
+    }
+
+    const validated = validation.data
 
     // Store in Telegram
     const storage = getTelegramStorage({
@@ -36,6 +47,22 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Determine which workflow to trigger based on service
+    const serviceToWorkflow: Record<string, string> = {
+      'website-development': 'full-website-project',
+      'content-creation': 'content-marketing-campaign',
+      'design-services': 'digital-product-launch',
+      'scripts-automation': 'client-onboarding',
+      'seo-traffic': 'content-marketing-campaign',
+      'ebooks-digital': 'digital-product-launch',
+      'social-media': 'content-marketing-campaign',
+      'legal-drafting': 'client-onboarding',
+      'cybersecurity': 'client-onboarding',
+      'sales-copy': 'digital-product-launch',
+    }
+
+    const workflowId = serviceToWorkflow[validated.service]
+    
     // Notify admin
     await storage.notifyAdmin(
       `🔔 *New Project Inquiry*\n\n` +
@@ -48,22 +75,54 @@ export async function POST(request: NextRequest) {
       { parse_mode: 'Markdown' }
     )
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Project submitted successfully',
-      clientId 
-    })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, errors: error.flatten().fieldErrors },
-        { status: 400 }
-      )
+    // Trigger Hermes workflow if mapped
+    if (workflowId) {
+      const projectId = `proj-${Date.now()}-${Math.random().toString(36).substring(7)}`
+      
+      // Run workflow asynchronously
+      runWorkflowFromWebhook(workflowId, {
+        ...validated,
+        clientId,
+        projectId,
+        service: validated.service,
+      }).then(async (result) => {
+        await storage.store({
+          type: 'deliverable',
+          id: `hermes-${result.executionId}`,
+          projectId,
+          data: result,
+        })
+
+        await storage.notifyAdmin(
+          `${result.success ? '✅' : '❌'} *Auto-triggered Workflow ${result.success ? 'Completed' : 'Failed'}*\n\n` +
+          `🔄 *Workflow:* ${workflowId}\n` +
+          `🆔 *Execution:* ${result.executionId}\n` +
+          `📋 *Project:* ${projectId}\n` +
+          `📊 *Steps:* ${result.steps.length}\n` +
+          `⏱️ *Duration:* ${(new Date(result.completedAt!).getTime() - new Date(result.startedAt).getTime()) / 1000}s`,
+          { parse_mode: 'Markdown' }
+        )
+      }).catch(async (error) => {
+        await storage.notifyAdmin(
+          `❌ *Auto-triggered Workflow Error*\n\n` +
+          `🔄 *Workflow:* ${workflowId}\n` +
+          `📋 *Project:* ${projectId}\n` +
+          `⚠️ *Error:* ${error instanceof Error ? error.message : 'Unknown error'}`,
+          { parse_mode: 'Markdown' }
+        )
+      })
     }
-    
+
+    return NextResponse.json(
+      createSuccessResponse(
+        { clientId, workflowTriggered: !!workflowId, workflowId },
+        'Project submitted successfully'
+      )
+    )
+  } catch (error) {
     console.error('Contact form error:', error)
     return NextResponse.json(
-      { success: false, message: 'Failed to submit. Please try again.' },
+      createErrorResponse('Failed to submit. Please try again.'),
       { status: 500 }
     )
   }

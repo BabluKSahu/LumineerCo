@@ -1,10 +1,12 @@
-import { BaseAgent, AgentTask, AgentResult } from './base'
+import { BaseAgent } from '@/lib/agents/base'
+import { agentRegistry } from '@/lib/agents/base'
 
 export class SocialMediaAgent extends BaseAgent {
   constructor() {
-    super(
-      'Social Media Marketing',
-      `You are an expert social media strategist and growth marketer.
+    super({
+      name: 'Social Media Marketing',
+      description: 'Expert social media strategist and growth marketer',
+      systemPrompt: `You are an expert social media strategist and growth marketer.
 
 Your expertise includes:
 - Platform strategy (Twitter/X, LinkedIn, Instagram, Threads, YouTube)
@@ -27,19 +29,19 @@ When given a project, you:
 7. Launch and optimize
 
 Output format: Strategy doc, content calendar, 30 posts written, visual specs, engagement playbook, analytics setup.`,
-      ['web_search', 'trend_research', 'platform_apis']
-    )
+      tools: ['web_search', 'trend_research', 'platform_apis']
+    })
   }
 
-  async execute(task: AgentTask): Promise<AgentResult> {
-    const { input } = task
-    const req = input as {
-      platforms: ('twitter' | 'linkedin' | 'instagram' | 'threads' | 'youtube')[]
-      goals: string[]
-      targetAudience: string
-      brandVoice: string
-      postingFrequency: string
-      contentTypes: string[]
+  async execute(input: { prompt: string; context?: Record<string, unknown>; projectId?: string }): Promise<{ success: boolean; result?: unknown; error?: string }> {
+    const req = {
+      platforms: ['twitter', 'linkedin'] as ('twitter' | 'linkedin' | 'instagram' | 'threads' | 'youtube')[],
+      goals: [] as string[],
+      targetAudience: '',
+      brandVoice: '',
+      postingFrequency: '',
+      contentTypes: [] as string[],
+      ...JSON.parse(input.prompt)
     }
 
     const steps = await this.plan(req)
@@ -54,7 +56,7 @@ Output format: Strategy doc, content calendar, 30 posts written, visual specs, e
       return { success: false, error: review.feedback }
     }
 
-    return this.formatOutput(deliverable)
+    return { success: true, result: this.formatOutput(deliverable) }
   }
 
   protected async plan(input: unknown): Promise<string[]> {
@@ -187,3 +189,6 @@ Output format: Strategy doc, content calendar, 30 posts written, visual specs, e
     return ['Typefully/Hypefury (Twitter)', 'Shield/Taplio (LinkedIn)', 'Later/Buffer (Instagram)', 'Canva/Figma (Design)']
   }
 }
+
+// Register agent
+agentRegistry.register('social', new SocialMediaAgent())

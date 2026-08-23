@@ -1,10 +1,12 @@
-import { BaseAgent, AgentTask, AgentResult } from './base'
+import { BaseAgent, AgentTask, AgentResult } from '@/lib/agents/base'
+import { agentRegistry } from '@/lib/agents/base'
 
 export class ScriptsAgent extends BaseAgent {
   constructor() {
-    super(
-      'Scripts & Automation',
-      `You are an expert automation engineer and Python developer.
+    super({
+      name: 'Scripts & Automation',
+      description: 'Automation engineer and Python developer',
+      systemPrompt: `You are an expert automation engineer and Python developer.
 
 Your expertise includes:
 - Python scripting (data processing, ETL, APIs)
@@ -25,18 +27,18 @@ When given a project, you:
 6. Provide maintenance guide
 
 Output format: Complete codebase, requirements.txt, README, deployment guide, test cases.`,
-      ['code_execution', 'web_search', 'api_testing']
-    )
+      tools: ['code_execution', 'web_search', 'api_testing']
+    })
   }
 
-  async execute(task: AgentTask): Promise<AgentResult> {
-    const { input } = task
-    const req = input as {
-      type: 'data-analysis' | 'api' | 'scraper' | 'automation' | 'etl' | 'monitoring'
-      requirements: string[]
-      language?: 'python' | 'javascript' | 'bash'
-      schedule?: string
-      integrations?: string[]
+  async execute(input: { prompt: string; context?: Record<string, unknown>; projectId?: string }): Promise<{ success: boolean; result?: unknown; error?: string }> {
+    const req = {
+      type: 'data-analysis' as 'data-analysis' | 'api' | 'scraper' | 'automation' | 'etl' | 'monitoring',
+      requirements: [] as string[],
+      language: 'python' as 'python' | 'javascript' | 'bash',
+      schedule: undefined as string | undefined,
+      integrations: [] as string[],
+      ...JSON.parse(input.prompt)
     }
 
     const steps = await this.plan(req)
@@ -51,7 +53,7 @@ Output format: Complete codebase, requirements.txt, README, deployment guide, te
       return { success: false, error: review.feedback }
     }
 
-    return this.formatOutput(deliverable)
+    return { success: true, result: this.formatOutput(deliverable) }
   }
 
   protected async plan(input: unknown): Promise<string[]> {
@@ -145,3 +147,6 @@ Output format: Complete codebase, requirements.txt, README, deployment guide, te
     }
   }
 }
+
+// Register agent
+agentRegistry.register('scripts', new ScriptsAgent())

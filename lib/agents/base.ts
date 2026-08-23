@@ -39,8 +39,19 @@ export abstract class BaseAgent {
 
   constructor(config: AgentConfig) {
     this.config = config
-    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    
+    const openaiKey = process.env.OPENAI_API_KEY
+    const anthropicKey = process.env.ANTHROPIC_API_KEY
+    
+    if (!openaiKey) {
+      console.warn('OPENAI_API_KEY not set, OpenAI functionality will be unavailable')
+    }
+    if (!anthropicKey) {
+      console.warn('ANTHROPIC_API_KEY not set, Anthropic functionality will be unavailable')
+    }
+    
+    this.openai = new OpenAI({ apiKey: openaiKey || '' })
+    this.anthropic = new Anthropic({ apiKey: anthropicKey || '' })
     this.projectId = ''
   }
 
@@ -53,6 +64,14 @@ export abstract class BaseAgent {
   protected async callLLM(messages: { role: string; content: string }[]): Promise<string> {
     const model = this.config.model || 'gpt-4-turbo'
     
+    // Check if required API key is available
+    if (model.startsWith('gpt') && !process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is required for GPT models')
+    }
+    if (model.startsWith('claude') && !process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY is required for Claude models')
+    }
+
     if (model.startsWith('gpt')) {
       const completion = await this.openai.chat.completions.create({
         model,
@@ -168,6 +187,20 @@ export class AgentRegistry {
   
   getIds(): string[] {
     return Array.from(this.agents.keys())
+  }
+  
+  async executeTask(task: any): Promise<any> {
+    const agent = this.agents.get(task.service)
+    if (!agent) {
+      throw new Error(`Agent not found: ${task.service}`)
+    }
+    
+    agent.setProjectId(task.projectId)
+    return agent.execute({
+      prompt: JSON.stringify(task.input),
+      context: { clientId: task.clientId, projectId: task.projectId },
+      projectId: task.projectId,
+    })
   }
 }
 

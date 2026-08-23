@@ -1,10 +1,12 @@
-import { BaseAgent, AgentTask, AgentResult } from './base'
+import { BaseAgent } from '@/lib/agents/base'
+import { agentRegistry } from '@/lib/agents/base'
 
 export class LegalAgent extends BaseAgent {
   constructor() {
-    super(
-      'Legal Document Drafting',
-      `You are an expert legal document specialist (not a lawyer - always include disclaimer).
+    super({
+      name: 'Legal Document Drafting',
+      description: 'Expert legal document specialist',
+      systemPrompt: `You are an expert legal document specialist (not a lawyer - always include disclaimer).
 
 Your expertise includes:
 - Contract drafting (NDAs, MSAs, freelancer agreements, employment)
@@ -26,18 +28,18 @@ When given a project, you:
 Output format: Complete document, plain-language summary, compliance checklist, jurisdiction notes, review guide.
 
 ⚠️ DISCLAIMER: AI-generated documents are templates only. Always have a qualified attorney review before use.`,
-      ['legal_research', 'template_library', 'compliance_check']
-    )
+      tools: ['legal_research', 'template_library', 'compliance_check']
+    })
   }
 
-  async execute(task: AgentTask): Promise<AgentResult> {
-    const { input } = task
-    const req = input as {
-      type: 'nda' | 'terms' | 'privacy' | 'freelancer' | 'employment' | 'dpa' | 'cookie' | 'custom'
-      jurisdiction: 'india' | 'us' | 'eu' | 'uk' | 'global'
-      partyDetails: { client: any; counterparty?: any }
-      specificClauses?: string[]
-      language?: 'plain' | 'legalese' | 'both'
+  async execute(input: { prompt: string; context?: Record<string, unknown>; projectId?: string }): Promise<{ success: boolean; result?: unknown; error?: string }> {
+    const req = {
+      type: 'nda' as 'nda' | 'terms' | 'privacy' | 'freelancer' | 'employment' | 'dpa' | 'cookie' | 'custom',
+      jurisdiction: 'india' as 'india' | 'us' | 'eu' | 'uk' | 'global',
+      partyDetails: { client: {}, counterparty: {} },
+      specificClauses: [] as string[],
+      language: 'plain' as 'plain' | 'legalese' | 'both',
+      ...JSON.parse(input.prompt)
     }
 
     const steps = await this.plan(req)
@@ -52,7 +54,7 @@ Output format: Complete document, plain-language summary, compliance checklist, 
       return { success: false, error: review.feedback }
     }
 
-    return this.formatOutput(deliverable)
+    return { success: true, result: this.formatOutput(deliverable) }
   }
 
   protected async plan(input: unknown): Promise<string[]> {
@@ -182,7 +184,7 @@ Last updated: ${new Date().toLocaleDateString()}
 2. COMPENSATION AND BENEFITS
 3. WORKING HOURS AND LOCATION
 4. PROBATION PERIOD
-5. LEAVE POLICIES
+5. LEVE POLICIES
 6. INTELLECTUAL PROPERTY
 7. CONFIDENTIALITY AND NON-COMPETE
 8. TERMINATION
@@ -290,3 +292,6 @@ document before use. LumineerCo accepts no liability for any consequences arisin
 from use of this template without professional legal review.`
   }
 }
+
+// Register agent
+agentRegistry.register('legal', new LegalAgent())

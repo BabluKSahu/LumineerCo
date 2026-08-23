@@ -9,9 +9,9 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function Card({ className, variant = 'default', hover = false, children, ...props }: CardProps) {
   const variants = {
-    default: 'bg-gray-950/50 border border-gray-800',
-    bordered: 'bg-gray-950 border border-gray-800',
-    elevated: 'bg-gray-900 border border-gray-800 shadow-xl shadow-black/50',
+    default: 'bg-white border border-gray-200',
+    bordered: 'bg-white border border-gray-200',
+    elevated: 'bg-white border border-gray-200 shadow-lg shadow-gray-100',
   }
 
   return (
@@ -37,13 +37,13 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={cn('text-xl font-bold text-white', className)} {...props} />
+    <h3 className={cn('text-xl font-bold text-gray-900', className)} {...props} />
   )
 }
 
 export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={cn('text-gray-400 text-sm mt-1', className)} {...props} />
+    <p className={cn('text-gray-600 text-sm mt-1', className)} {...props} />
   )
 }
 
@@ -55,6 +55,6 @@ export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDi
 
 export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn('px-6 pb-6 pt-4 border-t border-gray-800', className)} {...props} />
+    <div className={cn('px-6 pb-6 pt-4 border-t border-gray-200', className)} {...props} />
   )
 }

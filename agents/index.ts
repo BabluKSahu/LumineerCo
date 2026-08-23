@@ -1,4 +1,5 @@
-import { BaseAgent, AgentRegistry, agentRegistry } from './base'
+import { BaseAgent } from '@/lib/agents/base'
+import { agentRegistry } from '@/lib/agents/base'
 import { WebsiteDevAgent } from './website-dev'
 import { ContentAgent } from './content'
 import { DesignAgent } from './design'
@@ -10,17 +11,8 @@ import { LegalAgent } from './legal'
 import { SecurityAgent } from './security'
 import { SalesAgent } from './sales'
 
-// Register all agents
-agentRegistry.register(new WebsiteDevAgent())
-agentRegistry.register(new ContentAgent())
-agentRegistry.register(new DesignAgent())
-agentRegistry.register(new ScriptsAgent())
-agentRegistry.register(new SEOAgent())
-agentRegistry.register(new EbooksAgent())
-agentRegistry.register(new SocialMediaAgent())
-agentRegistry.register(new LegalAgent())
-agentRegistry.register(new SecurityAgent())
-agentRegistry.register(new SalesAgent())
+// Agents are auto-registered in their respective files
+// Just import them to trigger registration
 
 export { agentRegistry, BaseAgent }
-export type { AgentTask, AgentResult } from './base'
+export type { AgentTask, AgentResult } from '@/lib/agents/base'

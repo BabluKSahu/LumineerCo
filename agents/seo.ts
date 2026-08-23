@@ -1,10 +1,12 @@
-import { BaseAgent, AgentTask, AgentResult } from './base'
+import { BaseAgent } from '@/lib/agents/base'
+import { agentRegistry } from '@/lib/agents/base'
 
 export class SEOAgent extends BaseAgent {
   constructor() {
-    super(
-      'SEO & Traffic Growth',
-      `You are an expert SEO strategist and growth marketer.
+    super({
+      name: 'SEO & Traffic Growth',
+      description: 'Expert SEO strategist and growth marketer',
+      systemPrompt: `You are an expert SEO strategist and growth marketer.
 
 Your expertise includes:
 - Technical SEO audits (crawling, indexing, speed, Core Web Vitals)
@@ -26,20 +28,20 @@ When given a project, you:
 6. Set up tracking and reporting
 
 Output format: Audit report, keyword strategy, content calendar, technical fixes, link building plan, monthly reporting template.`,
-      ['web_search', 'seo_tools', 'analytics_api']
-    )
+      tools: ['web_search', 'seo_tools', 'analytics_api']
+    })
   }
 
-  async execute(task: AgentTask): Promise<AgentResult> {
-    const { input } = task
-    const req = input as {
-      domain: string
-      targetKeywords?: string[]
-      competitors?: string[]
-      goals: string[]
-      currentTraffic?: number
-      targetTraffic?: number
-      timeline?: string
+  async execute(input: { prompt: string; context?: Record<string, unknown>; projectId?: string }): Promise<{ success: boolean; result?: unknown; error?: string }> {
+    const req = {
+      domain: '',
+      targetKeywords: [] as string[],
+      competitors: [] as string[],
+      goals: [] as string[],
+      currentTraffic: 0,
+      targetTraffic: 0,
+      timeline: '6 months',
+      ...JSON.parse(input.prompt)
     }
 
     const steps = await this.plan(req)
@@ -54,7 +56,7 @@ Output format: Audit report, keyword strategy, content calendar, technical fixes
       return { success: false, error: review.feedback }
     }
 
-    return this.formatOutput(deliverable)
+    return { success: true, result: this.formatOutput(deliverable) }
   }
 
   protected async plan(input: unknown): Promise<string[]> {
@@ -153,3 +155,6 @@ Output format: Audit report, keyword strategy, content calendar, technical fixes
     }
   }
 }
+
+// Register agent
+agentRegistry.register('seo', new SEOAgent())

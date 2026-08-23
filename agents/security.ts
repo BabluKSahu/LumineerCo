@@ -1,10 +1,12 @@
-import { BaseAgent, AgentTask, AgentResult } from './base'
+import { BaseAgent } from '@/lib/agents/base'
+import { agentRegistry } from '@/lib/agents/base'
 
 export class SecurityAgent extends BaseAgent {
   constructor() {
-    super(
-      'Cybersecurity Audit',
-      `You are an expert application security engineer and penetration tester.
+    super({
+      name: 'Cybersecurity Audit',
+      description: 'Expert application security engineer and penetration tester',
+      systemPrompt: `You are an expert application security engineer and penetration tester.
 
 Your expertise includes:
 - SAST (Static Application Security Testing)
@@ -28,18 +30,18 @@ When given a project, you:
 6. Retest fixes
 
 Output format: Executive summary, technical findings, CVSS scores, PoC, remediation code, retest results.`,
-      ['sast_tools', 'dast_tools', 'dependency_scan', 'threat_modeling']
-    )
+      tools: ['sast_tools', 'dast_tools', 'dependency_scan', 'threat_modeling']
+    })
   }
 
-  async execute(task: AgentTask): Promise<AgentResult> {
-    const { input } = task
-    const req = input as {
-      type: 'sast' | 'dast' | 'penetration' | 'code-review' | 'threat-model' | 'full-audit'
-      target: string // URL, repo, or path
-      scope: string[]
-      depth: 'quick' | 'standard' | 'deep'
-      compliance?: ('owasp' | 'asvs' | 'pci' | 'hipaa' | 'gdpr')[]
+  async execute(input: { prompt: string; context?: Record<string, unknown>; projectId?: string }): Promise<{ success: boolean; result?: unknown; error?: string }> {
+    const req = {
+      type: 'sast' as 'sast' | 'dast' | 'penetration' | 'code-review' | 'threat-model' | 'full-audit',
+      target: '',
+      scope: [] as string[],
+      depth: 'standard' as 'quick' | 'standard' | 'deep',
+      compliance: [] as ('owasp' | 'asvs' | 'pci' | 'hipaa' | 'gdpr')[],
+      ...JSON.parse(input.prompt)
     }
 
     const steps = await this.plan(req)
@@ -54,7 +56,7 @@ Output format: Executive summary, technical findings, CVSS scores, PoC, remediat
       return { success: false, error: review.feedback }
     }
 
-    return this.formatOutput(deliverable)
+    return { success: true, result: this.formatOutput(deliverable) }
   }
 
   protected async plan(input: unknown): Promise<string[]> {
@@ -117,7 +119,7 @@ Output format: Executive summary, technical findings, CVSS scores, PoC, remediat
         cvss: 8.2,
         location: '/api/products/search',
         description: 'User input not parameterized in SQL query',
-        poc: 'Payload: \' OR 1=1--',
+        poc: "Payload: ' OR 1=1--",
         remediation: 'Use parameterized queries / ORM',
         references: ['OWASP A03:2021', 'CWE-89'],
       },
@@ -132,7 +134,6 @@ Output format: Executive summary, technical findings, CVSS scores, PoC, remediat
         remediation: 'Implement rate limiting (5 req/min/IP)',
         references: ['OWASP A07:2021', 'CWE-307'],
       },
-      // ... more findings
     ]
   }
 
@@ -174,3 +175,6 @@ Output format: Executive summary, technical findings, CVSS scores, PoC, remediat
     }
   }
 }
+
+// Register agent
+agentRegistry.register('security', new SecurityAgent())
